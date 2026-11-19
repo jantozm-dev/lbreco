@@ -14,6 +14,9 @@ sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin
+  # flatpak-builder builds without network; cargo needs crates.io.
+  build-args:
+    - --share=network
   env:
     CARGO_HOME: /run/build/lbreco/cargo
 modules:

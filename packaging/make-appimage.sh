@@ -41,6 +41,8 @@ for size in 64 128 256; do
 done
 install -Dm644 "data/${APP_ID}.metainfo.xml" \
   "${APPDIR}/usr/share/metainfo/${APP_ID}.metainfo.xml"
+# appimagetool expects the .desktop file at the AppDir root as well.
+install -Dm644 "data/${APP_ID}.desktop" "${APPDIR}/${APP_ID}.desktop"
 cp "data/png/256.png" "${APPDIR}/${APP_ID}.png"
 cp "data/png/256.png" "${APPDIR}/.DirIcon"
 
