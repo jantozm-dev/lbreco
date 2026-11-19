@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.lbreco.LBreco</id>
+  <name>lbreco</name>
+  <summary>Find your next 50 songs from ListenBrainz</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>
+      lbreco reads your ListenBrainz listening history and recommends real
+      tracks from artists in your lane. Keep the songs you like in a playlist
+      and export it for Spotify, YouTube Music, TuneMyMusic or Soundiiz.
+    </p>
+    <p>
+      An optional OpenAI-compatible model can re-rank and explain the
+      shortlist. Without AI, a deterministic diversity-aware curator still
+      returns the requested number of picks.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.lbreco.LBreco.desktop</launchable>
+  <url type="homepage">https://listenbrainz.org</url>
+  <developer id="io.github.lbreco">
+    <name>lbreco contributors</name>
+  </developer>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-11-18"/>
+  </releases>
+</component>

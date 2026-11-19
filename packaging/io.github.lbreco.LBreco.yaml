@@ -1,0 +1,33 @@
+app-id: io.github.lbreco.LBreco
+runtime: org.gnome.Platform
+runtime-version: '49'
+sdk: org.gnome.Sdk
+command: lbreco
+finish-args:
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --socket=pulseaudio
+  - --filesystem=xdg-download
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/lbreco/cargo
+modules:
+  - name: lbreco
+    buildsystem: simple
+    build-commands:
+      - cargo build --release --locked
+      - install -Dm755 target/release/lbreco /app/bin/lbreco
+      - install -Dm644 data/io.github.lbreco.LBreco.desktop /app/share/applications/io.github.lbreco.LBreco.desktop
+      - install -Dm644 data/io.github.lbreco.LBreco.svg /app/share/icons/hicolor/scalable/apps/io.github.lbreco.LBreco.svg
+      - install -Dm644 data/png/64.png /app/share/icons/hicolor/64x64/apps/io.github.lbreco.LBreco.png
+      - install -Dm644 data/png/128.png /app/share/icons/hicolor/128x128/apps/io.github.lbreco.LBreco.png
+      - install -Dm644 data/png/256.png /app/share/icons/hicolor/256x256/apps/io.github.lbreco.LBreco.png
+      - install -Dm644 data/io.github.lbreco.LBreco.metainfo.xml /app/share/metainfo/io.github.lbreco.LBreco.metainfo.xml
+    sources:
+      - type: dir
+        path: ..

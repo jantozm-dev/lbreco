@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=lbreco
+GenericName=Music Discovery
+Comment=Find your next 50 songs with ListenBrainz
+Exec=lbreco
+Icon=io.github.lbreco.LBreco
+Terminal=false
+Categories=AudioVideo;Audio;
+Keywords=music;discovery;recommendations;listenbrainz;
+StartupNotify=true
+StartupWMClass=lbreco

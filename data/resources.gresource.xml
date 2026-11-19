@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/io/github/lbreco/LBreco/icons">
+    <file alias="scalable/apps/io.github.lbreco.LBreco.svg">io.github.lbreco.LBreco.svg</file>
+    <file alias="64x64/apps/io.github.lbreco.LBreco.png">png/64.png</file>
+    <file alias="128x128/apps/io.github.lbreco.LBreco.png">png/128.png</file>
+    <file alias="256x256/apps/io.github.lbreco.LBreco.png">png/256.png</file>
+  </gresource>
+</gresources>
