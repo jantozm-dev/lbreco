@@ -20,7 +20,7 @@ subscription.
 - **Swipe** — one song at a time. The YouTube player loads right inside the
   card and starts playing. Swipe right (or press `→`) to keep it, swipe left
   (or press `←`) to skip. `Backspace` goes back one card.
-- **Playlist** — every accepted song, with remove buttons and exports.
+- **Playlist** — every accepted song
 
 ## No downloads
 
