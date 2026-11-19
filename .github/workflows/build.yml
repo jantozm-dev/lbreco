@@ -1,0 +1,257 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  deb:
+    name: Debian package
+    runs-on: ubuntu-24.04
+    container: debian:trixie
+    steps:
+      - name: Install git
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git ca-certificates
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential pkg-config curl ca-certificates \
+            libgtk-4-dev libadwaita-1-dev librsvg2-dev \
+            libwebkitgtk-6.0-dev dpkg-dev
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |
+            sh -s -- -y --profile minimal
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Build release binary
+        run: cargo build --release --locked
+      - name: Build .deb
+        run: |
+          set -euo pipefail
+          VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          ROOT=dist/deb
+          rm -rf "$ROOT"
+          install -Dm755 target/release/lbreco "$ROOT/usr/bin/lbreco"
+          install -Dm644 data/io.github.lbreco.LBreco.desktop \
+            "$ROOT/usr/share/applications/io.github.lbreco.LBreco.desktop"
+          install -Dm644 data/io.github.lbreco.LBreco.svg \
+            "$ROOT/usr/share/icons/hicolor/scalable/apps/io.github.lbreco.LBreco.svg"
+          for size in 64 128 256; do
+            install -Dm644 "data/png/${size}.png" \
+              "$ROOT/usr/share/icons/hicolor/${size}x${size}/apps/io.github.lbreco.LBreco.png"
+          done
+          install -Dm644 data/io.github.lbreco.LBreco.metainfo.xml \
+            "$ROOT/usr/share/metainfo/io.github.lbreco.LBreco.metainfo.xml"
+          mkdir -p "$ROOT/DEBIAN"
+          SIZE=$(du -sk "$ROOT/usr" | cut -f1)
+          cat > "$ROOT/DEBIAN/control" <<EOF
+          Package: lbreco
+          Version: ${VERSION}-1
+          Section: sound
+          Priority: optional
+          Architecture: amd64
+          Installed-Size: ${SIZE}
+          Depends: libgtk-4-1, libadwaita-1-0, libwebkitgtk-6.0-4
+          Maintainer: lbreco contributors <noreply@example.invalid>
+          Description: Find your next 50 songs from ListenBrainz
+           lbreco reads a ListenBrainz listening history and recommends real
+           tracks from artists in the listener's lane. Kept songs can be
+           exported as CSV, JSON or M3U for Spotify, YouTube Music, TuneMyMusic
+           or Soundiiz.
+          EOF
+          cat > "$ROOT/DEBIAN/postinst" <<'POSTINST'
+          #!/bin/sh
+          set -e
+          if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -f -t /usr/share/icons/hicolor >/dev/null 2>&1 || true
+          fi
+          if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+          fi
+          POSTINST
+          chmod 755 "$ROOT/DEBIAN/postinst"
+          cp "$ROOT/DEBIAN/postinst" "$ROOT/DEBIAN/postrm"
+          dpkg-deb --build --root-owner-group "$ROOT" \
+            "dist/lbreco_${VERSION}_amd64.deb"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb
+          path: dist/*.deb
+          if-no-files-found: error
+
+  appimage:
+    name: AppImage
+    runs-on: ubuntu-24.04
+    container: debian:trixie
+    steps:
+      - name: Install git
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git ca-certificates
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential pkg-config curl ca-certificates wget file \
+            libgtk-4-dev libadwaita-1-dev librsvg2-dev \
+            libwebkitgtk-6.0-dev libglib2.0-bin
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |
+            sh -s -- -y --profile minimal
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Build release binary
+        run: cargo build --release --locked
+      - name: Build AppImage
+        run: bash packaging/make-appimage.sh target/release/lbreco dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: dist/*.AppImage
+          if-no-files-found: error
+
+  rpm:
+    name: RPM package
+    runs-on: ubuntu-24.04
+    container: fedora:42
+    steps:
+      - name: Install git
+        run: dnf install -y git tar gzip
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          dnf install -y \
+            gcc gcc-c++ make pkgconf-pkg-config curl ca-certificates which tar zip \
+            gtk4-devel libadwaita-devel librsvg2-devel \
+            webkitgtk6.0-devel rpm-build
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |
+            sh -s -- -y --profile minimal
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Build release binary
+        run: cargo build --release --locked
+      - name: Build .rpm
+        run: |
+          set -euo pipefail
+          VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          rpmbuild -bb packaging/rpm/lbreco.spec \
+            --define "_topdir $PWD/rpmbuild" \
+            --define "lbreco_version $VERSION" \
+            --define "lbreco_binary $PWD/target/release/lbreco" \
+            --define "lbreco_desktop $PWD/data/io.github.lbreco.LBreco.desktop" \
+            --define "lbreco_icon $PWD/data/io.github.lbreco.LBreco.svg" \
+            --define "lbreco_png64 $PWD/data/png/64.png" \
+            --define "lbreco_png128 $PWD/data/png/128.png" \
+            --define "lbreco_png256 $PWD/data/png/256.png" \
+            --define "lbreco_metainfo $PWD/data/io.github.lbreco.LBreco.metainfo.xml"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpm
+          path: rpmbuild/RPMS/**/*.rpm
+          if-no-files-found: error
+
+  flatpak:
+    name: Flatpak bundle
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install flatpak-builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub \
+            https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub \
+            org.gnome.Platform//49 org.gnome.Sdk//49
+      - name: Build Flatpak
+        run: |
+          flatpak-builder --user --install-deps-from=flathub --force-clean \
+            --repo=flatpak-repo flatpak-build packaging/io.github.lbreco.LBreco.yaml
+          mkdir -p dist
+          flatpak build-bundle flatpak-repo dist/lbreco.flatpak io.github.lbreco.LBreco
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flatpak
+          path: dist/*.flatpak
+          if-no-files-found: error
+
+  windows:
+    name: Windows executable
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-gtk4
+            mingw-w64-ucrt-x86_64-libadwaita
+            mingw-w64-ucrt-x86_64-rust
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-binutils
+            zip
+      - name: Build and bundle
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          cargo build --release --locked
+          mkdir -p dist/share/glib-2.0/schemas
+          cp target/release/lbreco.exe dist/
+          ldd target/release/lbreco.exe |
+            awk '/\/ucrt64\/bin\// {print $3}' |
+            sort -u |
+            while IFS= read -r dll; do cp "$dll" dist/; done
+          cp /ucrt64/share/glib-2.0/schemas/*.gschema.xml dist/share/glib-2.0/schemas/ || true
+          glib-compile-schemas dist/share/glib-2.0/schemas || true
+          cat > dist/run-lbreco.cmd <<'EOF'
+          @echo off
+          set GSETTINGS_SCHEMA_DIR=%~dp0share\glib-2.0\schemas
+          set PATH=%~dp0;%PATH%
+          start "" "%~dp0lbreco.exe"
+          EOF
+          cat > dist/README-Windows.txt <<'EOF'
+          lbreco for Windows
+          ==================
+          Double-click run-lbreco.cmd. The GTK 4 and libadwaita DLLs are bundled
+          next to lbreco.exe; no GTK installation is required.
+          EOF
+          cd dist
+          zip -r ../lbreco-windows-x86_64.zip .
+          cd ..
+          mv lbreco-windows-x86_64.zip dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/lbreco-windows-x86_64.zip
+          if-no-files-found: error
+
+  release:
+    name: Attach packages to release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [deb, appimage, rpm, flatpak, windows]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
